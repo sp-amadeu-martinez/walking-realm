@@ -1,31 +1,42 @@
 <!doctype html>
 <html lang="es">
 <head>
+<script>window.__WR_BUILD = "dev 2026-11-01 14:20";</script>
 <script>
 (function () {
   var errs = [];
   function show(title) {
     var box = document.getElementById('wr-diag');
     if (!box) {
-      box = document.createElement('pre');
+      box = document.createElement('div');
       box.id = 'wr-diag';
-      box.style.cssText = 'position:fixed;left:0;right:0;bottom:0;max-height:60%;overflow:auto;margin:0;padding:12px;z-index:99999;background:#5a1d1a;color:#fff;font:12px/1.4 monospace;white-space:pre-wrap;border-top:3px solid #e0524a';
+      box.style.cssText = 'position:fixed;left:0;right:0;bottom:0;max-height:60%;overflow:auto;padding:12px;z-index:99999;background:#5a1d1a;color:#fff;font:12px/1.4 monospace;white-space:pre-wrap;border-top:3px solid #e0524a';
+      var close = document.createElement('button');
+      close.textContent = 'Cerrar';
+      close.style.cssText = 'float:right;min-width:88px;min-height:44px;margin:0 0 8px 8px;font:bold 15px sans-serif;color:#fff;background:#8a2d28;border:2px solid #e0524a;border-radius:4px';
+      close.onclick = function () { box.parentNode.removeChild(box); };
+      box.appendChild(close);
+      box.appendChild(document.createElement('span'));
       (document.body || document.documentElement).appendChild(box);
     }
-    box.textContent = title + '\n\n' + errs.join('\n') + '\n\nNavegador: ' + navigator.userAgent + '\nURL: ' + location.protocol;
+    box.lastChild.textContent = title + '\n\n' + errs.join('\n') + '\n\nBuild: ' + (window.__WR_BUILD || 'dev') +
+      '\nNavegador: ' + navigator.userAgent + '\nURL: ' + location.protocol;
+  }
+  function title() {
+    return window.__wrBooted ? 'Walking Realm ha tenido un error. Haz una captura de esto:'
+      : 'Walking Realm ha fallado al arrancar. Haz una captura de esto:';
   }
   window.addEventListener('error', function (e) {
     errs.push('Error: ' + e.message + ' (línea ' + e.lineno + ':' + e.colno + ')');
-    show('Walking Realm ha fallado al arrancar. Haz una captura de esto:');
+    show(title());
   });
   window.addEventListener('unhandledrejection', function (e) {
     var r = e.reason;
     errs.push('Promesa rechazada: ' + (r && (r.stack || r.message) || r));
-    show('Walking Realm ha fallado al arrancar. Haz una captura de esto:');
+    show(title());
   });
   setTimeout(function () {
-    var hud = document.getElementById('hud');
-    if (hud && !hud.innerHTML) show('Walking Realm no ha arrancado en 8 s. Haz una captura de esto:');
+    if (!window.__wrBooted) show('Walking Realm no ha arrancado en 8 s. Haz una captura de esto:');
   }, 8000);
 })();
 </script>
@@ -1181,6 +1192,7 @@ img.sil { opacity: .8; }
 .switch.on { border-color: #1f6a44; background: #0f3a2a; }
 .switch.on b { left: auto; right: 2px; background: var(--green); color: var(--k-ink); }
 .set-btn { min-height: 52px; }
+.set-ver { margin-top: 12px; font-size: 13px; text-align: center; }
 .set-btn .set-ico { width: 24px; height: 24px; }
 .steps-sum b.num { font: 800 22px var(--sans); }
 /* Crónica del caminante como botón alargado de 60 px (T-06 §5) */
@@ -4006,6 +4018,9 @@ class MapView {
     this.vw = VIEW_UNITS / this.zoom; this.vh = this.cssH / this.scale;
   }
 
+  // Reiniciar (B-06, c06): vuelve a 1× recalculando escala y vista; el recentrado lo hace el setCampaign siguiente.
+  resetZoom() { this.zoom = 1; this.camTween = null; this.applyZoom(); this.clamp(); }
+
   // Acerca o aleja por un factor manteniendo quieto el punto (sx, sy) del canvas, en px CSS.
   zoomBy(f, sx, sy) {
     const z = Math.max(1, Math.min(ZOOM_MAX, this.zoom * f));
@@ -5129,6 +5144,9 @@ const panelHead = (title, right = '') => `<div class="panel-head"><button class=
 const panel = (title, body, right = '') => `<div class="panel-c">${panelHead(title, right)}<div class="panel-body">${body}</div></div>`;
 const rowBtn = (ico, label, a, v = '', right = '<i class="chev">›</i>') => `<button class="set-row" data-a="${a}" ${v ? `data-v="${v}"` : ''}>${ico}<span class="grow">${label}</span>${right}</button>`;
 
+// Versión de la build (B-04, c06): make_build.py / make_single.py inyectan window.__WR_BUILD; en desarrollo, «dev».
+const buildLabel = () => globalThis.__WR_BUILD || 'dev';
+
 function settingsPanel(save, ui) {
   const c = save.campaign, on = !isMuted(), active = c.status === 'activa';
   const toggle = `<span class="switch ${on ? 'on' : ''}" aria-hidden="true"><b>${on ? 'Sí' : 'No'}</b></span>`;
@@ -5142,7 +5160,8 @@ function settingsPanel(save, ui) {
     <button class="btn danger set-btn" data-a="modal" data-v="retire">Retirarse de la campaña</button>` : ''}
     ${sectHead('Partida')}
     <button class="btn danger set-btn" data-a="modal" data-v="reset">Reiniciar partida</button>
-    ${ui.dev ? `<div class="set-txt muted">Semilla ${c.seed}</div>` : ''}`);
+    ${ui.dev ? `<div class="set-txt muted">Semilla ${c.seed}</div>` : ''}
+    <div class="set-ver muted">Versión ${buildLabel()}</div>`);
 }
 
 const chroniclePanel = (save, ui) => panel('Crónica del caminante', chronicleSheet(save, ui));
@@ -5268,7 +5287,7 @@ function modal(save, kind, ui) {
     const full = h.hp >= h.maxHp, short = HEAL_PRICE - h.gold, just = ui.healJust;
     const why = full ? '' : short > 0 ? `Te faltan ${short} de oro` : '';
     const fx = just ? [placeFx('', `Recuperaste <b class="num">${just}</b> de vida`, 'done', 0, true), placeFx('', `Vida <b class="num">${h.hp}/${h.maxHp}</b>`, 'done', 1, true)]
-      : full ? [placeFx('', `✓ Vida completa (<b class="num">${h.hp}/${h.maxHp}</b>)`, 'done')]
+      : full ? [placeFx('', `Vida completa (<b class="num">${h.hp}/${h.maxHp}</b>)`, 'done')]
         : [placeFx(art('ico/vida', 'fx-ico'), `Vida <b class="num">${h.hp}/${h.maxHp}</b> → <b class="num">${h.maxHp}/${h.maxHp}</b><div class="bar heal-bar"><i style="width:${pct(h.hp, h.maxHp)}%"></i><b style="left:${pct(h.hp, h.maxHp)}%;width:${100 - pct(h.hp, h.maxHp)}%"></b></div>`),
           short > 0 ? placeFx('', `Precio ${HEAL_PRICE} oro · tienes ${h.gold}. ¡No te llega!`, 'risk') : placeFx(art('ico/oro', 'fx-ico'), `Precio <b class="num">${HEAL_PRICE}</b> oro · tienes ${h.gold}`)];
     const done = full || just;
@@ -5534,7 +5553,7 @@ function endScreen(save) {
   </div>`;
 }
 
-return Object.freeze({ get icon() { return icon; }, get fmt() { return fmt; }, get itemArt() { return itemArt; }, get UI_ASSETS() { return UI_ASSETS; }, get art() { return art; }, get CACHE_NAME() { return CACHE_NAME; }, get cacheIcon() { return cacheIcon; }, get GLYPH() { return GLYPH; }, get tombIco() { return tombIco; }, get paBlock() { return paBlock; }, get hud() { return hud; }, get nav() { return nav; }, get mapPanel() { return mapPanel; }, get headingChip() { return headingChip; }, get intentBubble() { return intentBubble; }, get sceneBg() { return sceneBg; }, get combat() { return combat; }, get town() { return town; }, get expedition() { return expedition; }, get shop() { return shop; }, get tavern() { return tavern; }, get firstForSlot() { return firstForSlot; }, get noItemText() { return noItemText; }, get bestForSlot() { return bestForSlot; }, get heroTab() { return heroTab; }, get itemSheet() { return itemSheet; }, get bagTab() { return bagTab; }, get TYPE_ICO() { return TYPE_ICO; }, get contractLabel() { return contractLabel; }, get missions() { return missions; }, get backName() { return backName; }, get backBar() { return backBar; }, get settingsPanel() { return settingsPanel; }, get chroniclePanel() { return chroniclePanel; }, get stepsPanel() { return stepsPanel; }, get helpPanel() { return helpPanel; }, get MODAL_TYPE() { return MODAL_TYPE; }, get DLG_TAP_CLOSE() { return DLG_TAP_CLOSE; }, get BIOME_BG() { return BIOME_BG; }, get modal() { return modal; }, get dawnWorth() { return dawnWorth; }, get lootText() { return lootText; }, get lootIcons() { return lootIcons; }, get endScreen() { return endScreen; } });
+return Object.freeze({ get icon() { return icon; }, get fmt() { return fmt; }, get itemArt() { return itemArt; }, get UI_ASSETS() { return UI_ASSETS; }, get art() { return art; }, get CACHE_NAME() { return CACHE_NAME; }, get cacheIcon() { return cacheIcon; }, get GLYPH() { return GLYPH; }, get tombIco() { return tombIco; }, get paBlock() { return paBlock; }, get hud() { return hud; }, get nav() { return nav; }, get mapPanel() { return mapPanel; }, get headingChip() { return headingChip; }, get intentBubble() { return intentBubble; }, get sceneBg() { return sceneBg; }, get combat() { return combat; }, get town() { return town; }, get expedition() { return expedition; }, get shop() { return shop; }, get tavern() { return tavern; }, get firstForSlot() { return firstForSlot; }, get noItemText() { return noItemText; }, get bestForSlot() { return bestForSlot; }, get heroTab() { return heroTab; }, get itemSheet() { return itemSheet; }, get bagTab() { return bagTab; }, get TYPE_ICO() { return TYPE_ICO; }, get contractLabel() { return contractLabel; }, get missions() { return missions; }, get backName() { return backName; }, get backBar() { return backBar; }, get buildLabel() { return buildLabel; }, get settingsPanel() { return settingsPanel; }, get chroniclePanel() { return chroniclePanel; }, get stepsPanel() { return stepsPanel; }, get helpPanel() { return helpPanel; }, get MODAL_TYPE() { return MODAL_TYPE; }, get DLG_TAP_CLOSE() { return DLG_TAP_CLOSE; }, get BIOME_BG() { return BIOME_BG; }, get modal() { return modal; }, get dawnWorth() { return dawnWorth; }, get lootText() { return lootText; }, get lootIcons() { return lootIcons; }, get endScreen() { return endScreen; } });
 })();
 // ---- main.js ----
 __wr["main.js"] = (() => {
@@ -6255,15 +6274,19 @@ const HANDLERS = {
   restart: async () => {
     ui.modal = null;
     if (await dispatch({ type: 'restart', seed: newSeed(), now: Date.now() })) {
-      ui.stack = Nav.reset(); ui.sel = null; mapView.zoom = 1;
+      ui.stack = Nav.reset(); ui.sel = null; mapView.resetZoom();
       toast(`Nueva expedición · día 1${claimableToday(save.profile, Date.now(), save.campaign.seed) ? ' · puedes volver a reclamar los hitos de hoy' : ''}.`, { icon: 'ico/brujula' });
     }
   },
   // Reiniciar partida: todo de cero (PA, pasos, Crónica y códice) y la bienvenida como el primer día.
   resetGame: async () => {
     ui.modal = null;
+    // B-05 (c06): los pasos ya registrados y aún sin sincronizar son de antes del reinicio; se acreditan ahora para
+    // que zeroWallet los marque como contados y no aparezcan en la partida nueva. Sin avisos: la partida se borra igual.
+    const intervals = await adapter.syncSteps().catch(() => null);
+    if (intervals) await dispatch({ type: 'sync', intervals, now: Date.now() });
     if (!await dispatch({ type: 'resetGame', seed: newSeed(), now: Date.now() })) return;
-    ui.stack = Nav.reset(); ui.sel = null; ui.bagSel = null; ui.result = null; mapView.zoom = 1;
+    ui.stack = Nav.reset(); ui.sel = null; ui.bagSel = null; ui.result = null; mapView.resetZoom();
     pref.set('wr_dawn', '');
     ui.modal = 'welcome';
   },
@@ -6358,6 +6381,8 @@ async function boot() {
   }
   history.pushState(null, '');
   render();
+  // El diagnóstico del HTML único (make_single.py) distingue con esto un fallo de arranque de un error en partida (B-02/B-03, c06).
+  window.__wrBooted = true;
   await sync(true);
   if (!storage.persistent) toast('Este navegador no permite guardar: la partida se perderá al recargar.');
   else if (storage.fallback) toast('El guardado principal no responde: se usa la copia de este navegador. Cierra otras pestañas del juego.', { error: true, wait: true });
