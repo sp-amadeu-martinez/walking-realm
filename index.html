@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="es">
 <head>
-<script>window.__WR_BUILD = "c06 2026-11-01 14:20";</script>
+<script>window.__WR_BUILD = "c07 2026-11-04 21:33";</script>
 <script>
 (function () {
   var errs = [];
@@ -4965,9 +4965,9 @@ function mapPanel(save, sel) {
     if (s.enemy) main.push(costBtn('Atacar', COSTS.attack, 'attack', null, { primary: true, pa, icon: 'espada' }));
     if (s.chest && !s.used) main.push(costBtn('Abrir cofre', COSTS.chest, 'modal', 'chest', { primary: !s.enemy, pa, disabled: !!s.enemy, icon: 'chest' }));
     const rummage = cache && !s.explored && !s.enemy;
-    if (rummage) main.push(costBtn('Rebuscar', COSTS.explore, 'explore', null, { primary: true, pa, icon: 'icoSearch' }));
+    if (rummage) main.push(costBtn('Registrar escondite', COSTS.explore, 'explore', null, { primary: true, pa, icon: 'icoSearch' }));
     // Main action of the clearing for the footer: the first one that costs AP.
-    want = rummage ? { cost: COSTS.explore, what: 'rebuscar' }
+    want = rummage ? { cost: COSTS.explore, what: 'registrar el escondite' }
       : site?.type === 'mazmorra' && !s.used ? { cost: COSTS.dungeon, what: 'entrar en la mazmorra' }
       : site?.type === 'santuario' && !s.used ? { cost: COSTS.shrine, what: 'activar el santuario' }
       : s.enemy ? { cost: COSTS.attack, what: 'atacar' }
@@ -5659,7 +5659,7 @@ function modal(save, kind, ui) {
     const label = partial ? (q.healed ? `Curar lo que pueda · ${q.cost} oro` : `Curar · ${price} oro`) : `Curar · ${price} oro`;
     return placeView({
       artHtml: `${stage(BG.sanador, '.62', '', 'tall')}${just ? '<div class="heal-tint"></div><span class="pop heal place-pop">+' + just + '</span>' : ''}`,
-      title: 'Sanador', sub: siteOf(c, c.pos).name, pills: `${paPill(pa)}<span class="k-pill place-pill">${art('ico/oro', 'pa-ico')}${h.gold}</span>`,
+      title: 'Sanador', sub: siteOf(c, c.pos)?.name || 'Pueblo', pills: `${paPill(pa)}<span class="k-pill place-pill">${art('ico/oro', 'pa-ico')}${h.gold}</span>`,
       intro: [art('ico/vida', 'intro-ico'), 'Hierbas, vendas y paciencia.', '1,25 de oro por punto de vida (mínimo 5).'],
       fx,
       foot: full ? `<button class="btn" disabled>${GLYPH.ok} Vida completa</button><button class="btn primary" data-a="closeModal">Volver al pueblo</button>`
